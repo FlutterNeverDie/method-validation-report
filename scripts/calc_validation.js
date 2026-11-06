@@ -463,6 +463,7 @@ function run(d) {
   d.meta = isObj(d.meta) ? d.meta : {};
   d.narrative = isObj(d.narrative) ? d.narrative : {};
   sanitizeTextFields(d, ctx);
+  if (Array.isArray(d.import_warnings)) d.import_warnings.filter(w => typeof w === "string").forEach(w => ctx.warn(w));
   const C = num(d.meta.nominal_content_percent);
   if (Number.isNaN(C)) ctx.err(`meta.nominal_content_percent: 숫자가 아님 (${showVal(d.meta.nominal_content_percent)}) — "5%"가 아니라 5로 입력`);
   else if (C !== undefined && (C <= 0 || C > 100)) ctx.err(`meta.nominal_content_percent: 0–100 사이여야 함 (${C})`);
@@ -717,13 +718,23 @@ ${n.notes ? `<p>${esc(n.notes)}</p>` : ""}
 function main(argv) {
   const args = argv.slice(2);
   if (!args.length || args.includes("-h") || args.includes("--help")) {
-    console.log("사용법: node calc_validation.js <input.json> [--json] [--html <out.html>]");
+    console.log("사용법: node calc_validation.js <input.json | 입력양식.xlsx> [--json] [--html <out.html>]");
     process.exit(args.length ? 0 : 1);
   }
   const input = args[0];
   let d;
-  try { d = JSON.parse(fs.readFileSync(input, "utf8")); }
-  catch (e) { console.error(`입력 파일을 읽을 수 없음: ${e.message}`); process.exit(2); }
+  if (/\.xls[xm]$/i.test(input)) {
+    const X = require("./excel_to_json");
+    let sheets;
+    try { sheets = X.readXlsx(input); } catch (e) { console.error(`엑셀을 읽을 수 없음: ${e.message}`); process.exit(2); }
+    if (!X.isTemplate(sheets)) { console.error("입력 양식(기본정보·직선성·정확성·반복성 시트)이 아님 — node scripts/excel_to_json.js 파일.xlsx --dump 로 내용을 보고 JSON으로 정리하세요."); process.exit(4); }
+    d = X.fromWorkbook(sheets);
+  } else if (/\.xls$/i.test(input)) {
+    console.error("구형식 .xls 는 읽을 수 없음 — 엑셀에서 '다른 이름으로 저장 → Excel 통합 문서(.xlsx)'로 저장하세요."); process.exit(2);
+  } else {
+    try { d = JSON.parse(fs.readFileSync(input, "utf8")); }
+    catch (e) { console.error(`입력 파일을 읽을 수 없음: ${e.message}`); process.exit(2); }
+  }
   let r;
   try { r = run(d); }
   catch (e) { console.error(`오류: ${e.message}`); process.exit(2); }

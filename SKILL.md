@@ -1,9 +1,11 @@
 ---
 name: method-validation-report
-description: 분석 시험법 밸리데이션 보고서 작성. 살생물제·농약 제제 또는 제품의 유효성분 함량 시험법(HPLC, GC 등) 원데이터(시스템 적합성, 특이성, 직선성, 회수율, 반복성, 실험실 내 정밀성, LOD/LOQ, 완건성)를 받아 통계 계산, SANCO/3030/99 rev.5 또는 ICH Q2(R2) 기준 판정, 그래프가 들어간 보고서(HTML/PDF) 초안을 만든다. "밸리데이션 보고서", "시험법 검증", "validation report", "회수율 RSD 계산", "Horrat", "검량선 r" 같은 요청에 사용.
+description: 분석 시험법 밸리데이션 보고서 작성. 살생물제·농약 제제 또는 제품의 유효성분 함량 시험법(HPLC, GC 등) 원데이터(시스템 적합성, 특이성, 직선성, 회수율, 반복성, 실험실 내 정밀성, LOD/LOQ, 완건성)를 받아 통계 계산, SANCO/3030/99 rev.5 또는 ICH Q2(R2) 기준 판정, 그래프가 들어간 보고서(HTML/PDF) 초안을 만든다. 엑셀(.xlsx) 입력 양식을 바로 읽고, 다른 엑셀 원데이터도 펼쳐서 정리할 수 있다. "밸리데이션 보고서", "시험법 검증", "validation report", "회수율 RSD 계산", "Horrat", "검량선 r", "엑셀로 밸리데이션" 같은 요청에 사용.
 ---
 
 # 시험법 밸리데이션 보고서
+
+> 이 스킬은 Claude Code와 Gemini CLI에서 똑같이 동작한다. 아래 명령의 `$SK`는 **이 SKILL.md가 있는 디렉토리**다. 예: Claude Code는 `~/.claude/skills/method-validation-report`, Gemini CLI는 `~/.gemini/skills/method-validation-report`(또는 `~/.agents/skills/…`). 먼저 실제 경로를 확인하고 쓴다.
 
 ## 0. 시작 전 확인 (한 번에 물어보기)
 아래 중 모르는 것만 **한 메시지로 묶어서** 질문한다. 이미 받은 데이터에서 알 수 있는 건 묻지 않는다.
@@ -15,7 +17,18 @@ description: 분석 시험법 밸리데이션 보고서 작성. 살생물제·�
 기밀 주의: 제품명·처방·고객사는 코드명으로 받아도 된다고 안내한다. 원데이터를 외부 서비스에 올리지 않는다.
 
 ## 1. 입력 정리
-- 사용자가 엑셀 표, 붙여넣은 텍스트, CSV, 사진 등 어떤 형태로 줘도 Claude가 `templates/input_template.json` 구조로 바꾼다. 필드 설명은 `reference/input_schema.md` 참고.
+입력 경로는 세 가지다.
+
+| 받은 것 | 처리 |
+|---|---|
+| **엑셀 입력 양식**(`templates/input_template.xlsx`를 채운 파일) | 변환 없이 바로 계산: `node $SK/scripts/calc_validation.js 파일.xlsx --html report.html` |
+| **그 밖의 엑셀**(장비 출력, 개인 정리 파일 등) | `node $SK/scripts/excel_to_json.js 파일.xlsx --dump`로 시트·셀 주소·값을 펼쳐 본 뒤, 항목에 맞춰 `templates/input_template.json` 구조로 정리 |
+| 붙여넣은 표, CSV, 사진, 말로 준 값 | `templates/input_template.json` 구조로 정리 |
+
+- 사용자가 엑셀로 정리하고 싶어 하면 양식을 준다: `templates/input_template.xlsx`(예시 값 포함)를 복사해 주거나 `node $SK/scripts/make_excel_template.js 양식.xlsx --blank`로 빈 양식을 만든다. 이미 정리한 JSON은 `--from input.json`으로 엑셀로 내보낼 수 있다.
+- 엑셀 오류값(#DIV/0! 등)이나 계산값 없는 수식 셀은 "검토 필요 사항"에 셀 주소와 함께 나온다. 그대로 사용자에게 알린다.
+- `--dump`로 본 원데이터를 정리할 때는 **어느 셀을 어느 항목에 썼는지** 사용자에게 보여주고 확인받는다.
+- 필드 설명은 `reference/input_schema.md` 참고.
 - 숫자는 원데이터 그대로 옮긴다. 반올림하거나 임의로 빼지 않는다. 유럽식 소수점 콤마(`5,02`)는 마침표로 바꾼다.
 - **직선성은 한 행이 독립 조제 1건이다.** 같은 용액을 여러 번 주입했으면 `response` 배열로 넣는다(평균 처리). 독립 조제를 2번 했으면 같은 `conc`로 행을 두 개 넣는다. 사용자 데이터만 보고 어느 쪽인지 애매하면 물어본다.
 - ICH 기준을 쓰면 특이성 판단(간섭 없음 여부)을 `specificity.pass`로 받는다.
@@ -23,12 +36,13 @@ description: 분석 시험법 밸리데이션 보고서 작성. 살생물제·�
 
 ## 2. 계산 (손계산 금지, 반드시 스크립트 사용)
 ```bash
-SK=~/.claude/skills/method-validation-report
-node $SK/scripts/calc_validation.js input.json --html report.html   # 마크다운 결과 + HTML 보고서
+SK=<이 SKILL.md가 있는 디렉토리>   # 예: ~/.claude/skills/method-validation-report 또는 ~/.gemini/skills/method-validation-report
+node $SK/scripts/calc_validation.js input.json --html report.html   # 마크다운 결과 + HTML 보고서 (input.json 대신 양식 .xlsx 도 가능)
 node $SK/scripts/calc_validation.js input.json --json               # 결과를 JSON으로 받을 때
 ```
 - 종료 코드 3은 입력 오류. 출력의 "입력 오류" 항목을 보고 JSON을 고친 뒤 다시 실행한다.
-- 판정은 표시 자릿수로 반올림한 값으로 한다 (r 4자리, RSD 2자리, 회수율 1자리).
+- 비교 규칙: 회수율(소수 1자리)·RSD·간섭(2자리)은 보고 자릿수로 반올림 후 비교, r·r²·Horrat은 원값으로 비교.
+- 종료 코드 4는 입력 양식이 아닌 엑셀. `--dump`로 내용을 보고 JSON으로 정리한다.
 
 ## 3. 보고서 다듬기
 - `narrative.purpose`, `narrative.method_summary`에 목적과 시험 방법(전처리, 표준액 조제, 분석 조건)을 문장으로 채워서 다시 실행한다. `narrative.conclusion`이 비어 있으면 결론 문장은 자동으로 만들어진다.

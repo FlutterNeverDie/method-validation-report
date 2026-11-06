@@ -1,5 +1,7 @@
 # 입력 JSON 필드 설명
 
+> 엑셀로 입력할 때는 `templates/input_template.xlsx` 양식을 쓴다. 시트·항목과 JSON 필드의 대응은 `scripts/excel_to_json.js` 맨 위 `KV`·`TABLES` 정의가 기준이다.
+
 예시: `templates/input_template.json`. 숫자는 문자열이나 천 단위 콤마(`"1,002,450"`)로 넣어도 된다. **소수점은 반드시 마침표**(`5.02`). `"5,02"`는 오류로 처리한다. 없는 항목은 키를 빼면 된다.
 
 ## meta (기본 정보)
