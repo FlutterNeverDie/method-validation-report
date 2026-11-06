@@ -2,47 +2,69 @@
   "meta": {
     "title": "제품 A 중 유효성분 X 함량 시험법 밸리데이션",
     "analyte": "유효성분 X (CAS No. 0000-00-0)",
-    "product": "제품 A (코드명 가능)",
+    "product": "제품 A",
+    "formulation_type": "SL (액제)",
     "nominal_content_percent": 5.0,
-    "instrument": "HPLC-UV (Agilent 1260), 검출파장 220 nm",
-    "column": "C18, 4.6 x 150 mm, 5 µm",
-    "analyst": "홍길동",
-    "date": "2026-11-06",
+    "content_unit": "% w/w",
+    "target_conc": 100,
     "conc_unit": "µg/mL",
-    "response_unit": "peak area"
+    "response_unit": "peak area",
+    "instrument": "HPLC-UV, 220 nm",
+    "column": "C18, 4.6 x 150 mm, 5 µm",
+    "mobile_phase": "ACN : 0.1% H3PO4 = 60 : 40",
+    "sop_no": "TM-000",
+    "analyst": "홍길동",
+    "reviewer": "",
+    "approver": "",
+    "date": "2026-11-06"
   },
   "criteria": {
     "preset": "sanco3030",
     "custom": {}
   },
-  "specificity": "공시료(blank), 위약(placebo), 표준품 크로마토그램 비교 결과 유효성분 피크 위치에 간섭 피크 없음",
+  "narrative": {
+    "purpose": "",
+    "method_summary": "시료 약 1 g을 정밀히 달아 메탄올로 100 mL 정용 후 여과하여 HPLC로 분석한다.",
+    "conclusion": "",
+    "notes": ""
+  },
+  "system_suitability": {
+    "area_values": [1001200, 1003400, 998800, 1002100, 1000500, 999700],
+    "tailing": 1.12,
+    "plates": 8500,
+    "resolution": 3.4
+  },
+  "specificity": {
+    "interference_pct": 0.4,
+    "peak_purity": "DAD 피크 순도 적합 (purity angle < threshold)",
+    "note": "공시료(blank), 위약(placebo), 표준품, 시료 크로마토그램 비교 결과 유효성분 피크 위치에 유의한 간섭 없음"
+  },
   "linearity": [
-    { "conc": 40, "response": 401230 },
-    { "conc": 60, "response": 603110 },
-    { "conc": 80, "response": 799870 },
-    { "conc": 100, "response": 1002450 },
-    { "conc": 120, "response": 1198760 }
+    { "conc": 60, "response": [601200, 603500] },
+    { "conc": 80, "response": [799870, 801900] },
+    { "conc": 100, "response": [1002450, 999800] },
+    { "conc": 120, "response": [1198760, 1201300] },
+    { "conc": 140, "response": [1401900, 1398200] }
   ],
   "accuracy": [
-    { "level": "80%", "added": 80, "found": 79.6 },
-    { "level": "80%", "added": 80, "found": 80.3 },
-    { "level": "80%", "added": 80, "found": 79.9 },
-    { "level": "100%", "added": 100, "found": 100.4 },
-    { "level": "100%", "added": 100, "found": 99.7 },
-    { "level": "100%", "added": 100, "found": 100.1 },
-    { "level": "120%", "added": 120, "found": 119.5 },
-    { "level": "120%", "added": 120, "found": 120.6 },
-    { "level": "120%", "added": 120, "found": 120.2 }
+    { "level": "90%", "added": 4.5, "found": 4.47 },
+    { "level": "90%", "added": 4.5, "found": 4.52 },
+    { "level": "90%", "added": 4.5, "found": 4.49 },
+    { "level": "100%", "added": 5.0, "found": 5.02 },
+    { "level": "100%", "added": 5.0, "found": 4.98 },
+    { "level": "100%", "added": 5.0, "found": 5.01 },
+    { "level": "110%", "added": 5.5, "found": 5.47 },
+    { "level": "110%", "added": 5.5, "found": 5.53 },
+    { "level": "110%", "added": 5.5, "found": 5.51 }
   ],
   "repeatability": [5.02, 4.98, 5.01, 4.97, 5.03, 5.00],
   "intermediate_precision": {
-    "day1_analystA": [5.02, 4.98, 5.01, 4.97, 5.03, 5.00],
-    "day2_analystB": [4.99, 5.04, 5.00, 4.96, 5.02, 5.01]
+    "1일차_시험자A": [5.02, 4.98, 5.01, 4.97, 5.03, 5.00],
+    "2일차_시험자B": [4.99, 5.04, 5.00, 4.96, 5.02, 5.01]
   },
-  "lod_loq": { "method": "calibration" },
   "robustness": [
-    { "condition": "유속 ±0.1 mL/min", "result": "함량 변화 0.4%, 시스템 적합성 만족" },
-    { "condition": "컬럼온도 ±2 ℃", "result": "함량 변화 0.3%, 시스템 적합성 만족" }
-  ],
-  "system_suitability": "표준액 6회 반복 주입 면적 RSD 0.3%, 이론단수 8500, 테일링 1.1"
+    { "condition": "유속 +0.1 mL/min", "reference_value": 5.00, "result_value": 5.02 },
+    { "condition": "컬럼 온도 +2 ℃", "reference_value": 5.00, "result_value": 4.98 },
+    { "condition": "검출 파장 ±2 nm", "result": "시스템 적합성 만족, 함량 변화 없음" }
+  ]
 }

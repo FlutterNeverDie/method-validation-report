@@ -1,25 +1,39 @@
 # method-validation-report
 
-살생물제·제품 유효성분 함량 시험법의 **밸리데이션 보고서를 자동으로 작성**하는 [Claude Code](https://claude.com/claude-code) 스킬입니다.
+살생물제·농약 제제의 유효성분 함량 시험법 **밸리데이션 보고서를 자동으로 작성**하는 [Claude Code](https://claude.com/claude-code) 스킬입니다.
 
-원데이터(직선성, 회수율, 반복 측정값 등)를 붙여넣으면 통계 계산 → 기준 판정 → 보고서 초안까지 만들어 줍니다.
+원데이터를 엑셀에서 복사해 붙여넣으면 아래 순서로 처리합니다.
+1. 통계 계산
+2. **SANCO/3030/99 rev.5** 또는 **ICH Q2(R2)** 기준으로 판정
+3. 그래프가 들어간 보고서(HTML → PDF) 작성
 
 ## 기능
 
-| 항목 | 계산 내용 |
+| 항목 | 계산 / 판정 |
 |---|---|
-| 직선성 | 회귀식, r, R², 잔차(%) |
-| 정확성 | 개별/수준별 회수율, RSD |
-| 정밀성 | 반복성, 실험실 내 정밀성 RSD |
-| LOD / LOQ | 검량선법 (3.3σ/S, 10σ/S) 또는 입력값 |
-| 특이성·완건성·시스템 적합성 | 서술형 결과 정리 |
+| 시스템 적합성 | 면적 RSD, 테일링, 이론단수, 분리도 |
+| 특이성 | 간섭(총 피크면적 대비 %) ≤ 3% |
+| 직선성 | 회귀식, r / r², 잔차(%), y절편 유의성, 설계 요건(5농도 단일 측정 또는 3농도 2회 측정), 목표 농도 ±20% 범위 |
+| 정확성 | 회수율(total / marginal 자동 선택), 수준별 평균·RSD·95% 신뢰구간, 함량별 SANCO 기준 구간 |
+| 반복성 | RSD, **수정 Horwitz RSDr과 Horrat**(≤1 적합 / 1–2 조건부 / >2 부적합), **Grubbs 이상치 검정** |
+| 실험실 내 정밀성 | 일원분산분석(ISO 5725 방식)으로 반복성과 실험실 내 정밀성 RSD 분리, 조건 간 유의차 검정 |
+| LOD / LOQ | 검량선법(잔차 또는 절편 SD) 또는 S/N 값 입력 |
+| 완건성 | 기준 조건 대비 차이(%) |
+| 보고서 | A4 인쇄용 HTML. 검량선·잔차 그래프, 결과 요약, 자동 결론, 검토 필요 사항, 서명란 포함 |
 
-### 판정 기준 preset
-- `sanco3030` (기본) — SANCO/3030/99 rev.5 기반. 함량별 회수율 구간, 수정 Horwitz RSDr
-- `ich` — ICH Q2(R2) 관행값 (r ≥ 0.999, 회수율 98–102%, RSD ≤ 2%)
-- `custom` — 사내 SOP 기준으로 덮어쓰기 (`r_min`, `recovery_range`, `rsd_max`)
+이상치는 절대 자동으로 제외하지 않습니다. 의심값과 처리 방법만 "검토 필요 사항"에 표시합니다.
 
-> ⚠️ 기준값은 참고용입니다. 최종 판정 전 소속 기관 SOP 및 제출 가이드라인 원문과 대조하세요.
+## 판정 기준
+
+| preset | 대상 | 비고 |
+|---|---|---|
+| `sanco3030` (기본) | 살생물제·농약 제제 | SANCO/3030/99 rev.5 원문 수치 (4.2.1절, Appendix 2·3) |
+| `ich` | 의약품 | ICH Q2(R2) 항목 + 업계 관행 수치 (r ≥ 0.999, 98–102%, RSD ≤ 2%) |
+| `custom` | 사내 SOP | 개별 기준을 덮어쓰기 |
+
+근거 원문과 custom 키 목록은 [`reference/criteria.md`](reference/criteria.md)에 있습니다.
+
+> ⚠️ 최종 판정 전에 소속 기관 SOP와 제출처 요구사항을 대조하세요.
 
 ## 설치
 
@@ -27,33 +41,36 @@
 git clone https://github.com/FlutterNeverDie/method-validation-report.git ~/.claude/skills/method-validation-report
 ```
 
-계산 스크립트 실행에 Node.js가 필요합니다 (외부 패키지 없음).
+Node.js 18 이상이 필요합니다. 외부 패키지는 쓰지 않습니다.
 
 ## 사용법
 
-Claude Code에서:
+Claude Code에서 `/method-validation-report`를 입력하거나, "밸리데이션 보고서 써줘"라고 요청하고 데이터를 붙여넣으면 됩니다.
 
-```
-/method-validation-report
-```
-
-또는 "밸리데이션 보고서 써줘", "회수율이랑 RSD 계산해줘"처럼 요청하고 데이터를 붙여넣으면 됩니다. 엑셀 표를 그대로 복사해도 됩니다.
-
-스크립트만 단독으로 쓸 수도 있습니다:
+스크립트만 따로 쓸 수도 있습니다.
 
 ```bash
-node scripts/calc_validation.js templates/input_template.json
+node scripts/calc_validation.js templates/input_template.json                  # 마크다운 결과
+node scripts/calc_validation.js templates/input_template.json --html out.html  # HTML 보고서
+node scripts/calc_validation.js templates/input_template.json --json           # JSON
 ```
+
+입력 형식은 [`reference/input_schema.md`](reference/input_schema.md)를 참고하세요.
 
 ## 구성
 
 ```
-SKILL.md                         # 스킬 작업 지침
-templates/input_template.json    # 입력 데이터 예시
-templates/report_template.md     # 보고서 목차
-scripts/calc_validation.js       # 통계 계산 및 판정
+SKILL.md                        # Claude 작업 지침
+scripts/calc_validation.js      # 계산·판정·보고서 생성
+scripts/lib/stats.js            # 통계 함수 (t/F 분포, Grubbs, ANOVA 등)
+templates/input_template.json   # 입력 예시
+templates/report_template.md    # 사내 양식용 목차
+reference/criteria.md           # 판정 기준 근거
+reference/input_schema.md       # 입력 필드 설명
+tests/validation.test.js        # 테스트 (node --test tests/)
 ```
 
-## 참고 가이드라인
-- SANCO/3030/99 rev.5 — Technical Active Substance and Plant Protection Products: Guidance for generating and reporting methods of analysis
-- ICH Q2(R2) — Validation of Analytical Procedures
+## 참고 문헌
+- SANCO/3030/99 rev.5 (2019). *Technical active substance and plant protection products: Guidance for generating and reporting methods of analysis…*
+- ICH Q2(R2) (2023). *Validation of Analytical Procedures*
+- ISO 5725-2. *Accuracy (trueness and precision) of measurement methods and results*
