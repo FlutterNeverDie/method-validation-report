@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "title": "제품 A 중 유효성분 X 함량 시험법 밸리데이션",
+    "analyte": "유효성분 X (CAS No. 0000-00-0)",
+    "product": "제품 A (코드명 가능)",
+    "nominal_content_percent": 5.0,
+    "instrument": "HPLC-UV (Agilent 1260), 검출파장 220 nm",
+    "column": "C18, 4.6 x 150 mm, 5 µm",
+    "analyst": "홍길동",
+    "date": "2026-11-06",
+    "conc_unit": "µg/mL",
+    "response_unit": "peak area"
+  },
+  "criteria": {
+    "preset": "sanco3030",
+    "custom": {}
+  },
+  "specificity": "공시료(blank), 위약(placebo), 표준품 크로마토그램 비교 결과 유효성분 피크 위치에 간섭 피크 없음",
+  "linearity": [
+    { "conc": 40, "response": 401230 },
+    { "conc": 60, "response": 603110 },
+    { "conc": 80, "response": 799870 },
+    { "conc": 100, "response": 1002450 },
+    { "conc": 120, "response": 1198760 }
+  ],
+  "accuracy": [
+    { "level": "80%", "added": 80, "found": 79.6 },
+    { "level": "80%", "added": 80, "found": 80.3 },
+    { "level": "80%", "added": 80, "found": 79.9 },
+    { "level": "100%", "added": 100, "found": 100.4 },
+    { "level": "100%", "added": 100, "found": 99.7 },
+    { "level": "100%", "added": 100, "found": 100.1 },
+    { "level": "120%", "added": 120, "found": 119.5 },
+    { "level": "120%", "added": 120, "found": 120.6 },
+    { "level": "120%", "added": 120, "found": 120.2 }
+  ],
+  "repeatability": [5.02, 4.98, 5.01, 4.97, 5.03, 5.00],
+  "intermediate_precision": {
+    "day1_analystA": [5.02, 4.98, 5.01, 4.97, 5.03, 5.00],
+    "day2_analystB": [4.99, 5.04, 5.00, 4.96, 5.02, 5.01]
+  },
+  "lod_loq": { "method": "calibration" },
+  "robustness": [
+    { "condition": "유속 ±0.1 mL/min", "result": "함량 변화 0.4%, 시스템 적합성 만족" },
+    { "condition": "컬럼온도 ±2 ℃", "result": "함량 변화 0.3%, 시스템 적합성 만족" }
+  ],
+  "system_suitability": "표준액 6회 반복 주입 면적 RSD 0.3%, 이론단수 8500, 테일링 1.1"
+}
