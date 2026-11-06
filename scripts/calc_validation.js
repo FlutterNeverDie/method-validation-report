@@ -68,7 +68,13 @@ function resolveCriteria(d) {
 
 // ───────────────────────── 유틸 ─────────────────────────
 // 숫자 변환: 천 단위 콤마("1,002,450")만 허용. "5,02" 같은 소수점 콤마는 오류(NaN)로 처리
+// 절댓값 1e15 초과는 측정값으로 비현실적이고 분산 계산에서 넘침(Infinity)을 일으키므로 오류로 처리
+const MAX_ABS = 1e15;
 function num(v) {
+  const n = parseNum(v);
+  return n !== undefined && Math.abs(n) > MAX_ABS ? NaN : n;
+}
+function parseNum(v) {
   if (v === null || v === undefined || v === "") return undefined;
   if (typeof v === "number") return Number.isFinite(v) ? v : NaN;
   if (typeof v !== "string") return NaN;
@@ -92,6 +98,26 @@ function round(x, n) {
 const f = (x, n = 3) => (x === undefined || x === null || Number.isNaN(x) ? "-" : round(x, n).toFixed(n));
 const V = { PASS: "적합", COND: "조건부 적합", FAIL: "부적합", REVIEW: "확인 필요", INFO: "정보", NA: "미실시" };
 const isObj = v => v !== null && typeof v === "object" && !Array.isArray(v);
+// 오류 메시지에 사용자 입력을 보여줄 때
+const showVal = v => (v === undefined ? "빈 값" : typeof v === "number" && !Number.isFinite(v) ? "유효하지 않은 수" : JSON.stringify(v));
+// 문장 필드: 문자열·유한한 숫자만 허용. 그 외(객체, 배열, NaN 등)는 오류로 알리고 제거
+function cleanText(obj, keys, name, ctx) {
+  if (!isObj(obj)) return;
+  for (const k of keys || Object.keys(obj)) {
+    const v = obj[k];
+    if (v === undefined || v === null || typeof v === "string" || isNum(v)) continue;
+    ctx.err(`${name}.${k}: 문자 또는 숫자여야 함 (${showVal(v)})`);
+    delete obj[k];
+  }
+}
+function sanitizeTextFields(d, ctx) {
+  cleanText(d.meta, null, "meta", ctx);
+  cleanText(d.narrative, null, "narrative", ctx);
+  cleanText(d.system_suitability, ["note"], "system_suitability", ctx);
+  cleanText(d.specificity, ["note", "peak_purity", "resolution"], "specificity", ctx);
+  if (Array.isArray(d.accuracy)) d.accuracy.forEach((a, i) => cleanText(a, ["level"], `accuracy[${i}]`, ctx));
+  if (Array.isArray(d.robustness)) d.robustness.forEach((a, i) => cleanText(a, ["condition", "result"], `robustness[${i}]`, ctx));
+}
 
 class Ctx {
   constructor() { this.errors = []; this.warnings = []; this.summary = []; }
@@ -108,7 +134,7 @@ function numArray(arr, name, ctx) {
   const out = [];
   arr.forEach((v, i) => {
     const n = num(v);
-    if (n === undefined || Number.isNaN(n)) ctx.err(`${name}[${i}]: 숫자가 아님 (${JSON.stringify(v)})${typeof v === "string" && /\d,\d/.test(v) ? " — 소수점은 마침표(.)로 입력" : ""}`);
+    if (n === undefined || Number.isNaN(n)) ctx.err(`${name}[${i}]: 숫자가 아니거나 범위 밖 (${showVal(v)})${typeof v === "string" && /\d,\d/.test(v) ? " — 소수점은 마침표(.)로 입력" : ""}`);
     else out.push(n);
   });
   return out;
@@ -163,7 +189,7 @@ function calcSpecificity(d, crit, ctx) {
   }
   if (!isObj(sp)) { ctx.err("specificity: 객체 또는 문자열이어야 함"); return null; }
   const ip = num(sp.interference_pct);
-  if (Number.isNaN(ip)) { ctx.err(`specificity.interference_pct: 숫자가 아님 (${JSON.stringify(sp.interference_pct)}) — "<0.1"처럼 부등호가 있으면 숫자(0.1)로 넣고 note에 설명`); return { ...sp }; }
+  if (Number.isNaN(ip)) { ctx.err(`specificity.interference_pct: 숫자가 아님 (${showVal(sp.interference_pct)}) — "<0.1"처럼 부등호가 있으면 숫자(0.1)로 넣고 note에 설명`); return { ...sp }; }
   if (ip !== undefined && crit.interference_max != null) {
     const ok = round(ip, 2) <= crit.interference_max;
     ctx.row("특이성 (간섭)", critText, `${f(ip, 2)}%`, ok ? V.PASS : V.FAIL, req);
@@ -419,11 +445,13 @@ function run(d) {
   const ctx = new Ctx();
   if (!isObj(d)) throw new Error("입력 JSON이 객체가 아님");
   d.meta = isObj(d.meta) ? d.meta : {};
+  d.narrative = isObj(d.narrative) ? d.narrative : {};
+  sanitizeTextFields(d, ctx);
   const C = num(d.meta.nominal_content_percent);
-  if (Number.isNaN(C)) ctx.err(`meta.nominal_content_percent: 숫자가 아님 (${JSON.stringify(d.meta.nominal_content_percent)}) — "5%"가 아니라 5로 입력`);
+  if (Number.isNaN(C)) ctx.err(`meta.nominal_content_percent: 숫자가 아님 (${showVal(d.meta.nominal_content_percent)}) — "5%"가 아니라 5로 입력`);
   else if (C !== undefined && (C <= 0 || C > 100)) ctx.err(`meta.nominal_content_percent: 0–100 사이여야 함 (${C})`);
   const crit = resolveCriteria(d);
-  const r = { meta: d.meta, narrative: isObj(d.narrative) ? d.narrative : {}, criteria: crit };
+  const r = { meta: d.meta, narrative: d.narrative, criteria: crit };
   r.system_suitability = calcSystemSuitability(d, crit, ctx);
   r.specificity = calcSpecificity(d, crit, ctx);
   r.linearity = calcLinearity(d, crit, ctx);
@@ -542,7 +570,11 @@ function niceTicks(lo, hi, target = 5) {
   return { ticks: out, dec };
 }
 
-function svgScatter({ xs, ys, line, w = 520, h = 300, xLabel, yLabel, zeroLine = false }) {
+function svgScatter({ xs: xs0, ys: ys0, line, w = 520, h = 300, xLabel, yLabel, zeroLine = false }) {
+  // 그릴 수 없는 점(NaN, 예: 0 농도의 잔차%)은 제외
+  const keep = xs0.map((x, i) => isNum(x) && isNum(ys0[i]));
+  const xs = xs0.filter((_, i) => keep[i]), ys = ys0.filter((_, i) => keep[i]);
+  if (!xs.length) return `<p class="small">(그래프로 표시할 점 없음)</p>`;
   const pad = { l: 78, r: 16, t: 14, b: 44 };
   const xmin = Math.min(...xs), xmax = Math.max(...xs);
   let ymin = Math.min(...ys), ymax = Math.max(...ys);
