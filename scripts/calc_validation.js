@@ -24,7 +24,7 @@ function sancoRecoveryRange(pct) {
 function resolveCriteria(d) {
   const c = d.criteria || {};
   const preset = c.preset || "sanco3030";
-  if (!["sanco3030", "ich", "custom"].includes(preset)) throw new Error(`criteria.preset 값이 잘못됨: ${preset} (sanco3030 | ich | custom)`);
+  if (!["sanco3030", "inhouse", "ich", "custom"].includes(preset)) throw new Error(`criteria.preset 값이 잘못됨: ${preset} (sanco3030 | inhouse | ich | custom)`);
   const o = c.custom || {};
   const C = num(d.meta && d.meta.nominal_content_percent);
   const base = preset === "ich"
@@ -40,7 +40,7 @@ function resolveCriteria(d) {
         ip_scored: true,
       }
     : {
-        label: preset === "custom" ? "사내 기준(custom)" : "SANCO/3030/99 rev.5",
+        label: preset === "custom" ? "사내 기준(custom)" : preset === "inhouse" ? "연구자 기준 (SANCO/3030/99 rev.5 준용)" : "SANCO/3030/99 rev.5",
         r_min: 0.99, r2_alt: 0.98,
         lin_rule: "독립 조제 1회 × 5농도 이상 또는 독립 조제 2회 × 3농도 이상",
         lin_min_levels: 5, lin_dup_min_levels: 3,
@@ -59,11 +59,27 @@ function resolveCriteria(d) {
   const crit = { preset, ...common, ...base };
   for (const [k, v] of Object.entries(o)) crit[k] = v;
   if (o.rsd_max !== undefined) { crit.precision_mode = "rsd"; if (o.ip_scored === undefined) crit.ip_scored = true; }
-  // 관행값 항목은 사내 기준을 넣었을 때만 종합 판정에 반영
-  if (o.ss_scored === undefined) crit.ss_scored = preset === "custom" || Object.keys(o).some(k => k.startsWith("ss_"));
-  if (o.robustness_scored === undefined) crit.robustness_scored = preset === "custom" || o.robustness_max_diff !== undefined;
-  if (Object.keys(o).length && preset !== "custom") crit.label += " (일부 사내 기준으로 덮어씀)";
+  // 관행값 항목은 연구자/사내 기준으로 채택했을 때만 종합 판정에 반영
+  const own = preset === "custom" || preset === "inhouse";
+  if (o.ss_scored === undefined) crit.ss_scored = own || Object.keys(o).some(k => k.startsWith("ss_"));
+  if (o.robustness_scored === undefined) crit.robustness_scored = own || o.robustness_max_diff !== undefined;
+  if (Object.keys(o).length && !own) crit.label += " (일부 사내 기준으로 덮어씀)";
+  crit.basis = typeof c.basis === "string" && c.basis.trim() ? c.basis.trim() : autoBasis(crit, o);
   return crit;
+}
+
+// 보고서에 들어갈 '기준 근거' 문장 — 실제 적용 수치로 생성
+function autoBasis(crit, o) {
+  const ss = `시스템 적합성(면적 RSD ≤ ${crit.ss_area_rsd_max}%, 테일링 ≤ ${crit.ss_tailing_max}, 이론단수 ≥ ${crit.ss_plates_min}, 분리도 ≥ ${crit.ss_resolution_min})`;
+  const rb = `완건성(기준 조건 대비 차이 ≤ ${crit.robustness_max_diff}%)`;
+  const own = Object.entries(o).filter(([k]) => !/^ss_|^robustness_max_diff$|_scored$/.test(k)).map(([k, v]) => `${k} = ${JSON.stringify(v)}`);
+  let s;
+  if (crit.preset === "ich") s = "ICH Q2(R2) 평가 항목. 수치 기준은 제약 업계 관행값(r ≥ 0.999, 회수율 98–102%, RSD ≤ 2%)이며 ICH 원문 수치가 아님.";
+  else if (crit.preset === "custom") s = "사내 기준.";
+  else if (crit.preset === "inhouse") s = `특이성·직선성·정확성·반복성은 SANCO/3030/99 rev.5(4.2.1절, Appendix 2·3) 준용. ${ss}과 ${rb}은 연구자 기준.`;
+  else s = `SANCO/3030/99 rev.5 (4.2.1절, Appendix 2·3). ${crit.ss_scored ? ss + "은 연구자 기준" : "시스템 적합성은 일반 관행값으로 참고만 함"}, ${crit.robustness_scored ? rb + "은 연구자 기준" : "완건성은 참고만 함"}.`;
+  if (own.length) s += ` 연구자 지정 값: ${own.join(", ")}.`;
+  return s;
 }
 
 // ───────────────────────── 유틸 ─────────────────────────
@@ -472,6 +488,7 @@ function toMarkdown(r) {
   const cu = m.conc_unit || "";
   o.push(`# 계산 결과 — ${m.title || ""}`);
   o.push(`- 판정 기준: **${r.criteria.label}**`);
+  o.push(`- 기준 근거: ${r.criteria.basis}`);
   o.push(`- 표시 함량: ${m.nominal_content_percent ?? "-"}% w/w, 목표 농도: ${m.target_conc ?? "-"} ${cu}`);
   o.push(`- 비교 규칙: 회수율(소수 1자리)·RSD·간섭(2자리)은 보고 자릿수로 반올림 후 비교, r·r²·Horrat은 원값으로 비교\n`);
   if (r.errors.length) { o.push(`## ⛔ 입력 오류`); r.errors.forEach(e => o.push(`- ${e}`)); o.push(""); }
@@ -666,7 +683,7 @@ function toHtml(r) {
         : `모든 밸리데이션 항목이 판정 기준(${r.criteria.label})에 적합하므로, 본 시험법은 ${m.product || "해당 제품"} 중 ${m.analyte || "유효성분"}의 함량 측정에 적합한 것으로 판단한다.`)
     : `종합 판정: ${r.overall}. 부적합·조건부·누락 항목은 아래 검토 필요 사항을 참고하여 보완이 필요하다.`);
 
-  const info = [["분석 대상", m.analyte], ["시료", m.product ? `${m.product}${m.formulation_type ? ` (${m.formulation_type})` : ""}` : ""], ["표시 함량", m.nominal_content_percent !== undefined ? `${m.nominal_content_percent}% w/w` : ""], ["목표 농도", m.target_conc !== undefined ? `${m.target_conc} ${cu}` : ""], ["장비 / 조건", [m.instrument, m.column, m.mobile_phase].filter(Boolean).join(", ")], ["시험법 번호", m.sop_no], ["시험자 / 일자", [m.analyst, m.date].filter(Boolean).join(" / ")], ["판정 기준", r.criteria.label]].filter(([, v]) => v);
+  const info = [["분석 대상", m.analyte], ["시료", m.product ? `${m.product}${m.formulation_type ? ` (${m.formulation_type})` : ""}` : ""], ["표시 함량", m.nominal_content_percent !== undefined ? `${m.nominal_content_percent}% w/w` : ""], ["목표 농도", m.target_conc !== undefined ? `${m.target_conc} ${cu}` : ""], ["장비 / 조건", [m.instrument, m.column, m.mobile_phase].filter(Boolean).join(", ")], ["시험법 번호", m.sop_no], ["시험자 / 일자", [m.analyst, m.date].filter(Boolean).join(" / ")], ["판정 기준", r.criteria.label], ["기준 근거", r.criteria.basis]].filter(([, v]) => v);
 
   return `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>${esc(m.title || "시험법 밸리데이션 보고서")}</title><style>
 @page{size:A4;margin:18mm 16mm}

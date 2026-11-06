@@ -35,7 +35,7 @@ const examples = [];
 const N = +process.argv[2] || 20000;
 for (let i = 0; i < N; i++) {
   const d = mutate(JSON.parse(JSON.stringify(tpl)));
-  if (rnd() < 0.2 && d.criteria) d.criteria = { preset: pick(["ich", "sanco3030", "custom"]), custom: rnd() < 0.5 ? {} : { rsd_max: 2, ss_tailing_max: 2 } };
+  if (rnd() < 0.2 && d.criteria) d.criteria = { preset: pick(["ich", "sanco3030", "inhouse", "custom"]), custom: rnd() < 0.5 ? {} : { rsd_max: 2, ss_tailing_max: 2 } };
   let r, md, html;
   try { r = run(d); md = toMarkdown(r); html = toHtml(r); }
   catch (e) {
