@@ -351,3 +351,31 @@ test("[N5] custom.ss_scored 명시값 존중", () => {
   d.criteria.custom = { ss_scored: true };
   assert.equal(run(d).overall, "부적합");
 });
+
+// ───────── 퍼징으로 찾은 결함 회귀 테스트 ─────────
+test("[퍼징] 0 농도 점이 있어도 잔차 그래프에 NaN 좌표 없음", () => {
+  const d = clone(template);
+  d.linearity = [{ conc: 0, response: 150 }, ...d.linearity];
+  const html = toHtml(run(d));
+  assert.ok(!/NaN/.test(html));
+});
+
+test("[퍼징] 문장 필드에 객체/배열 → 입력 오류, 출력에 [object Object] 없음", () => {
+  const { toMarkdown } = require("../scripts/calc_validation");
+  const d = clone(template);
+  d.narrative.purpose = { a: 1 };
+  d.meta.title = ["x"];
+  d.robustness[0].condition = { c: 1 };
+  const r = run(d);
+  assert.equal(r.overall, "입력 오류");
+  assert.ok(!/\[object Object\]/.test(toHtml(r) + toMarkdown(r)));
+});
+
+test("[퍼징] 비현실적으로 큰 값(>1e15) → 입력 오류, Infinity 출력 없음", () => {
+  const { toMarkdown } = require("../scripts/calc_validation");
+  const d = clone(template);
+  d.system_suitability.area_values[0] = 1e308;
+  const r = run(d);
+  assert.equal(r.overall, "입력 오류");
+  assert.ok(!/Infinity/.test(toMarkdown(r)));
+});

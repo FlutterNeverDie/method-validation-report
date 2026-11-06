@@ -68,7 +68,19 @@ templates/report_template.md    # 사내 양식용 목차
 reference/criteria.md           # 판정 기준 근거
 reference/input_schema.md       # 입력 필드 설명
 tests/validation.test.js        # 테스트 (node --test tests/)
+tests/verify/                   # SciPy 교차 검증, 퍼징
 ```
+
+## 검증
+
+| 방법 | 명령 | 결과 |
+|---|---|---|
+| 단위·회귀 테스트 (43개) | `node --test tests/` | 전부 통과 |
+| SciPy/NumPy 독립 구현과 교차 검증 (무작위 4,300건, 값 21,800개) | `uv run --no-project --with scipy --with numpy python -I tests/verify/crossval.py` | 최대 상대오차 1.1×10⁻⁹, 허용오차(10⁻⁸) 초과 0건 |
+| 퍼징: 망가진 입력 5만 건 | `node tests/verify/fuzz.js 50000` | 크래시 0, 출력 오염(NaN·undefined) 0, 판정 규칙 위반 0 |
+
+- 회귀 표준오차는 SciPy `linregress`가 아니라 잔차 기반 식으로 계산합니다. `linregress`는 √(1−r²) 식을 써서 r ≈ 1일 때 상대오차가 10⁻³ 수준까지 커집니다. 50자리 정밀도(mpmath)로 계산한 정확값과 비교했을 때 이 구현의 오차는 10⁻¹⁰ 이하입니다.
+- 퍼징의 판정 규칙: 종합 판정이 "적합"이면 입력 오류가 없어야 하고, 필수 4개 항목(특이성·직선성·정확성·반복성)이 모두 적합이어야 하며, 종합 판정에 반영되는 항목 중 부적합·조건부가 없어야 합니다.
 
 ## 참고 문헌
 - SANCO/3030/99 rev.5 (2019). *Technical active substance and plant protection products: Guidance for generating and reporting methods of analysis…*
