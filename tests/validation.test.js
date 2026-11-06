@@ -219,6 +219,7 @@ test("[리뷰4] null 섹션·요소가 있어도 중단되지 않음", () => {
 
 test("[리뷰5] SANCO: 참고 항목(완건성·시스템 적합성 관행값) 미달은 종합 판정에 반영 안 함", () => {
   const d = clone(template);
+  d.criteria.preset = "sanco3030";
   d.robustness[0].result_value = 5.3;          // 6% 차이
   d.system_suitability.tailing = 2.5;
   const r = run(d);
@@ -322,6 +323,7 @@ test("[N1] 직선성 빈 response 배열 → 입력 오류", () => {
 
 test("[N2] 참고 항목 미달 시 결론 문구에 명시", () => {
   const d = clone(template);
+  d.criteria.preset = "sanco3030";
   d.robustness[0].result_value = 5.5;
   const r = run(d);
   assert.equal(r.overall, "적합");
@@ -378,4 +380,36 @@ test("[퍼징] 비현실적으로 큰 값(>1e15) → 입력 오류, Infinity 출
   const r = run(d);
   assert.equal(r.overall, "입력 오류");
   assert.ok(!/Infinity/.test(toMarkdown(r)));
+});
+
+// ───────── inhouse(연구자 기준) preset ─────────
+test("inhouse: SANCO 수치 그대로 + 시스템 적합성·완건성을 종합 판정에 반영", () => {
+  const d = clone(template);
+  d.criteria = { preset: "inhouse", custom: {} };
+  let r = run(d);
+  assert.equal(r.overall, "적합");
+  assert.deepEqual(r.accuracy.range, [90, 110]);
+  assert.ok(!r.summary.some(s => s.item.includes("(참고)") && s.item.startsWith("시스템")));
+  d.system_suitability.tailing = 2.4;
+  assert.equal(run(d).overall, "부적합");
+  d.system_suitability.tailing = 1.1; d.robustness[0].result_value = 5.3;
+  assert.equal(run(d).overall, "부적합");
+});
+
+test("inhouse: 기준 근거 문장이 실제 수치로 보고서에 들어감", () => {
+  const d = clone(template);
+  d.criteria = { preset: "inhouse", custom: { ss_tailing_max: 1.5 } };
+  const r = run(d);
+  assert.match(r.criteria.basis, /SANCO\/3030\/99 rev\.5/);
+  assert.match(r.criteria.basis, /테일링 ≤ 1\.5/);
+  assert.ok(toHtml(r).includes("기준 근거"));
+  d.criteria.basis = "연구소 내부 결정 (2026-11-06)";
+  assert.equal(run(d).criteria.basis, "연구소 내부 결정 (2026-11-06)");
+});
+
+test("sanco3030 기본값은 여전히 참고 처리", () => {
+  const d = clone(template);
+  d.criteria = { preset: "sanco3030" };
+  d.system_suitability.tailing = 2.4;
+  assert.equal(run(d).overall, "적합");
 });
