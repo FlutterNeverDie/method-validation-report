@@ -27,7 +27,8 @@
 
 | preset | 대상 | 비고 |
 |---|---|---|
-| `sanco3030` (기본) | 살생물제·농약 제제 | SANCO/3030/99 rev.5 원문 수치 (4.2.1절, Appendix 2·3) |
+| `inhouse` (템플릿 기본) | 사내 SOP 없이 연구자가 기준을 정할 때 | SANCO 수치 준용 + 시스템 적합성·완건성을 연구자 기준으로 종합 판정에 반영. 기준 근거 문장 자동 생성 |
+| `sanco3030` | 살생물제·농약 제제 | SANCO/3030/99 rev.5 원문 수치 (4.2.1절, Appendix 2·3). 관행값 항목은 참고만 |
 | `ich` | 의약품 | ICH Q2(R2) 항목 + 업계 관행 수치 (r ≥ 0.999, 98–102%, RSD ≤ 2%) |
 | `custom` | 사내 SOP | 개별 기준을 덮어쓰기 |
 
@@ -75,7 +76,7 @@ tests/verify/                   # SciPy 교차 검증, 퍼징
 
 | 방법 | 명령 | 결과 |
 |---|---|---|
-| 단위·회귀 테스트 (43개) | `node --test tests/` | 전부 통과 |
+| 단위·회귀 테스트 (46개) | `node --test tests/` | 전부 통과 |
 | SciPy/NumPy 독립 구현과 교차 검증 (무작위 4,300건, 값 21,800개) | `uv run --no-project --with scipy --with numpy python -I tests/verify/crossval.py` | 최대 상대오차 1.1×10⁻⁹, 허용오차(10⁻⁸) 초과 0건 |
 | 퍼징: 망가진 입력 5만 건 | `node tests/verify/fuzz.js 50000` | 크래시 0, 출력 오염(NaN·undefined) 0, 판정 규칙 위반 0 |
 

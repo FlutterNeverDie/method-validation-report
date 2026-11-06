@@ -16,7 +16,7 @@
 | `analyst`, `reviewer`, `approver`, `date` | | 서명란과 일자 |
 
 ## criteria
-`preset`: `sanco3030` (기본) / `ich` / `custom`. `custom` 객체로 개별 기준 덮어쓰기 → `reference/criteria.md`
+`preset`: `inhouse` (템플릿 기본, 연구자 기준) / `sanco3030` / `ich` / `custom`. `custom` 객체로 개별 기준 덮어쓰기, `basis`(문자열)로 보고서의 기준 근거 문장 직접 지정 → `reference/criteria.md`
 
 ## narrative (보고서 문장)
 `purpose`, `method_summary`, `conclusion`(비우면 자동 생성), `notes`
